@@ -1,0 +1,140 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// Roles definidos en la tesis [cite: 17, 21]
+enum Role {
+  ADMIN
+  CONDUCTOR
+}
+
+enum EstadoVehiculo {
+  DISPONIBLE
+  EN_RUTA
+  MANTENIMIENTO
+}
+
+model Usuario {
+  id        String   @id @default(uuid())
+  nombre    String
+  email     String   @unique
+  password  String
+  rol       Role     @default(CONDUCTOR)
+  creadoEn  DateTime @default(now())
+  
+  // Relaciones
+  viajes             Viaje[]
+  vehiculosAsignados Vehiculo[] @relation("VehiculoConductor")
+  notificaciones     Notificacion[]
+  
+  dni     String?
+  brevete String?
+}
+
+model Vehiculo {
+  id          String         @id @default(uuid())
+  placa       String         @unique
+  modelo      String
+  capacidad   Float
+  kilometraje Float          @default(0)
+  estado      EstadoVehiculo @default(DISPONIBLE)
+  latitud     Float          @default(-12.0464)
+  longitud    Float          @default(-77.0428)
+  conductorActualId String?
+  conductorActual   Usuario? @relation("VehiculoConductor", fields: [conductorActualId], references: [id], onDelete: SetNull)
+  
+  // Relaciones
+  viajes      Viaje[]
+  soat        Soat?
+  certificado CertificadoCirculacion?
+}
+
+model Viaje {
+  id             String   @id @default(uuid())
+  origen         String
+  destino        String
+  fechaInicio    DateTime @default(now())
+  fechaFin       DateTime?
+  kmInicial      Float
+  kmFinal        Float?
+  distanciaTotal Float?
+  
+  conductorId String
+  conductor   Usuario @relation(fields: [conductorId], references: [id])
+  vehiculoId  String
+  vehiculo    Vehiculo @relation(fields: [vehiculoId], references: [id])
+  
+  gastos     Gasto[]
+  prediccion PrediccionIA?
+}
+
+enum TipoGasto {
+  COMBUSTIBLE
+  PEAJE
+  MANTENIMIENTO
+  VIATICO
+  OTROS
+}
+
+model Gasto {
+  id          String   @id @default(uuid())
+  tipo        TipoGasto
+  monto       Float
+  galones     Float?
+  imagenUrl   String?
+  descripcion String?
+  fecha       DateTime @default(now())
+  
+  viajeId String
+  viaje   Viaje @relation(fields: [viajeId], references: [id])
+}
+
+model PrediccionIA {
+  id              String   @id @default(uuid())
+  costoEstimado   Float
+  esAnomalo       Boolean  @default(false)
+  fechaPrediccion DateTime @default(now())
+  
+  viajeId String @unique
+  viaje   Viaje  @relation(fields: [viajeId], references: [id])
+}
+
+model Soat {
+  id             String   @id @default(uuid())
+  numero         String
+  fechaVigencia  DateTime
+  fechaCaducidad DateTime
+  
+  vehiculoId String   @unique
+  vehiculo   Vehiculo @relation(fields: [vehiculoId], references: [id])
+}
+
+model CertificadoCirculacion {
+  id             String   @id @default(uuid())
+  numero         String
+  fechaVigencia  DateTime
+  fechaCaducidad DateTime
+  
+  vehiculoId String   @unique
+  vehiculo   Vehiculo @relation(fields: [vehiculoId], references: [id])
+}
+
+model Notificacion {
+  id        String   @id @default(uuid())
+  mensaje   String
+  leido     Boolean  @default(false)
+  fecha     DateTime @default(now())
+  
+  usuarioId String
+  usuario   Usuario @relation(fields: [usuarioId], references: [id])
+}
